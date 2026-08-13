@@ -3,6 +3,8 @@
 
 export const EVENT = {
   name: 'HACKER HOUSE',
+  /** The event is "Hacker House Goa" — use this anywhere the name stands alone. */
+  fullName: 'HACKER HOUSE GOA',
   city: 'GOA',
   cityLocal: 'गोवा',
   year: '2026',

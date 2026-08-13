@@ -1,136 +1,98 @@
 // Format A — the profile picture frame.
 //
-// X crops avatars to a circle, so every piece of branding here lives inside the
-// inscribed circle and the photo fills the full square. That way the export works
-// both as an avatar and as a standalone square image.
+// Two constraints drive the layout. X crops avatars to a circle, so every piece
+// of branding sits inside the inscribed circle. And the photo is clipped to a
+// circle *inside* the frame, so it never bleeds into the border or the corners —
+// the square around it stays solid brand colour.
 
 import { EVENT, type Theme } from '../../brand';
 import { display, mono } from '../fonts';
-import { palm, sparkle, sun, wavyBand, waves } from './motifs';
-import {
-  arcText,
-  cover,
-  grain,
-  grid,
-  roundedPath,
-  text,
-  textWidth,
-  type Ctx,
-} from './primitives';
-import type { RenderState } from './types';
+import { palm, sparkle, sun, wavyBand } from './motifs';
+import { arcText, cover, grain, grid, rays, text, type Ctx } from './primitives';
+import type { RenderState, RingStyle } from './types';
 
 const SIZE = 1080;
 const C = SIZE / 2;
 
-/** Filled ring between two radii. */
-function annulus(ctx: Ctx, rOuter: number, rInner: number, color: string): void {
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(C, C, rOuter, 0, Math.PI * 2);
-  ctx.arc(C, C, rInner, 0, Math.PI * 2, true);
-  ctx.fill('evenodd');
-  ctx.restore();
-}
+/** Radius the photo is clipped to, per frame style. */
+const PHOTO_RADIUS: Record<RingStyle, number> = {
+  seal: 444,
+  wave: 430,
+  tape: 468,
+};
 
-function ring(ctx: Ctx, radius: number, width: number, color: string, dash?: number[]): void {
+function ring(ctx: Ctx, radius: number, width: number, color: string): void {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
-  if (dash) ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.arc(C, C, radius, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
 
-/** Rounded label chip, auto-sized to its text. */
-function pill(
-  ctx: Ctx,
-  cx: number,
-  cy: number,
-  label: string,
-  font: string,
-  bg: string,
-  fg: string,
-  tracking = 4,
-  padX = 30,
-  height = 56,
-): void {
-  const w = textWidth(ctx, label, { font, color: fg, tracking }) + padX * 2;
-
-  ctx.save();
-  ctx.fillStyle = bg;
-  roundedPath(ctx, cx - w / 2, cy - height / 2, w, height, height / 2);
-  ctx.fill();
-  ctx.restore();
-
-  text(ctx, label, cx, cy, { font, color: fg, align: 'center', baseline: 'middle', tracking });
-}
-
-/** Darkens the outer edge so light photos never wash out against the frame. */
-function vignette(ctx: Ctx, theme: Theme): void {
-  const g = ctx.createRadialGradient(C, C, SIZE * 0.28, C, C, SIZE * 0.58);
-  g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.38)');
-  ctx.save();
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, SIZE, SIZE);
-  ctx.globalAlpha = 0.12;
+/**
+ * Brand-coloured square with the photo clipped into a circle at its centre.
+ * Everything outside that circle belongs to the frame.
+ */
+function backdrop(ctx: Ctx, state: RenderState, theme: Theme, radius: number): void {
   ctx.fillStyle = theme.ink;
   ctx.fillRect(0, 0, SIZE, SIZE);
-  ctx.restore();
-}
 
-function backdrop(ctx: Ctx, state: RenderState, theme: Theme): void {
-  ctx.fillStyle = theme.ink;
-  ctx.fillRect(0, 0, SIZE, SIZE);
+  grid(ctx, SIZE, SIZE, 60, theme.rule, 0.4);
+  rays(ctx, C, C, radius, 760, 16, theme.gold, 0.05);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(C, C, radius, 0, Math.PI * 2);
+  ctx.clip();
 
   if (state.photo) {
-    cover(ctx, state.photo.canvas, 0, 0, SIZE, SIZE, state.zoom, state.panX, state.panY);
-    vignette(ctx, theme);
-    return;
+    const d = radius * 2;
+    cover(ctx, state.photo.canvas, C - radius, C - radius, d, d, state.zoom, state.panX, state.panY);
+  } else {
+    ctx.fillStyle = theme.ink;
+    ctx.fillRect(C - radius, C - radius, radius * 2, radius * 2);
+    grid(ctx, SIZE, SIZE, 60, theme.rule, 0.6);
+    sun(ctx, C, C - 40, 78, theme.gold);
+    text(ctx, 'ADD YOUR PHOTO', C, C + 130, {
+      font: mono(26, 500),
+      color: theme.paper,
+      align: 'center',
+      baseline: 'middle',
+      tracking: 6,
+    });
   }
-
-  // Empty state still shows the frame, so people can see what they are getting.
-  grid(ctx, SIZE, SIZE, 60, theme.rule, 0.5);
-  sun(ctx, C, C - 40, 78, theme.gold);
-  text(ctx, 'ADD YOUR PHOTO', C, C + 130, {
-    font: mono(26, 500),
-    color: theme.paper,
-    align: 'center',
-    baseline: 'middle',
-    tracking: 6,
-  });
+  ctx.restore();
 }
 
 function drawSeal(ctx: Ctx, theme: Theme): void {
-  annulus(ctx, C, 446, theme.ink);
-  ring(ctx, 535, 8, theme.gold);
-  ring(ctx, 450, 7, theme.gold);
-  ring(ctx, 433, 3, theme.hot);
+  ring(ctx, 448, 9, theme.gold);
+  ring(ctx, 536, 8, theme.gold);
 
-  arcText(ctx, `${EVENT.name}  ·  ${EVENT.cityLocal}`, C, C, 493, -Math.PI / 2, {
-    font: display(46, 900),
+  // The band is only 92px deep. A second concentric line of type collides with
+  // the wordmark's descenders, so the seal carries the name and hashtag only.
+  arcText(ctx, EVENT.fullName, C, C, 496, -Math.PI / 2, {
+    font: display(48, 900),
     color: theme.paper,
     tracking: 3,
   });
 
-  arcText(ctx, EVENT.hashtag, C, C, 491, Math.PI / 2, {
+  arcText(ctx, EVENT.hashtag, C, C, 494, Math.PI / 2, {
     font: display(52, 900),
     color: theme.gold,
     tracking: 2,
     flip: true,
   });
 
-  sparkle(ctx, C + 493, C, 15, theme.hot);
-  sparkle(ctx, C - 493, C, 15, theme.hot);
-
-  pill(ctx, C, 142, EVENT.dates, mono(23, 500), theme.ink, theme.gold, 5, 32, 58);
+  sparkle(ctx, C + 495, C, 15, theme.hot);
+  sparkle(ctx, C - 495, C, 15, theme.hot);
 }
 
 function drawWave(ctx: Ctx, theme: Theme): void {
-  sun(ctx, 812, 252, 38, theme.gold);
+  ring(ctx, 436, 11, theme.gold);
+
+  sun(ctx, 812, 236, 36, theme.gold);
 
   // Gold band first, ink band 16px lower — the offset is what makes the lip.
   wavyBand(ctx, 0, 774, SIZE, SIZE, 26, 3, theme.gold);
@@ -141,17 +103,17 @@ function drawWave(ctx: Ctx, theme: Theme): void {
   palm(ctx, 236, 946, 132, theme.gold, -8);
   palm(ctx, 852, 958, 118, theme.gold, 9);
 
-  text(ctx, EVENT.name, C, 878, {
-    font: display(76, 900),
+  text(ctx, EVENT.fullName, C, 878, {
+    font: display(66, 900),
     color: theme.paper,
     align: 'center',
     baseline: 'middle',
     tracking: 1,
-    maxWidth: 580,
-    minSize: 48,
+    maxWidth: 600,
+    minSize: 42,
   });
 
-  text(ctx, `${EVENT.city}  ·  ${EVENT.dates}`, C, 926, {
+  text(ctx, EVENT.dates, C, 926, {
     font: mono(23, 500),
     color: theme.paper,
     align: 'center',
@@ -170,38 +132,34 @@ function drawWave(ctx: Ctx, theme: Theme): void {
 
   sparkle(ctx, C - 190, 986, 12, theme.hot);
   sparkle(ctx, C + 190, 986, 12, theme.hot);
-
-  ring(ctx, 528, 16, theme.gold);
 }
 
 function drawTape(ctx: Ctx, theme: Theme): void {
-  ring(ctx, 520, 32, theme.gold);
-  ring(ctx, 497, 7, theme.ink);
-  ring(ctx, 480, 4, theme.hot);
+  ring(ctx, 486, 32, theme.gold);
+  ring(ctx, 508, 4, theme.hot);
+  ring(ctx, 470, 5, theme.ink);
 
-  arcText(ctx, `${EVENT.name} · ${EVENT.city} ${EVENT.year}`, C, C, 520, -Math.PI / 2, {
+  arcText(ctx, `${EVENT.fullName} · ${EVENT.year}`, C, C, 486, -Math.PI / 2, {
     font: mono(21, 500),
     color: theme.ink,
-    tracking: 7,
+    tracking: 6,
   });
 
-  arcText(ctx, `${EVENT.dates} · ${EVENT.place}`, C, C, 520, Math.PI / 2, {
+  arcText(ctx, `${EVENT.hashtag} · ${EVENT.dates}`, C, C, 486, Math.PI / 2, {
     font: mono(21, 500),
     color: theme.ink,
-    tracking: 7,
+    tracking: 6,
     flip: true,
   });
 
   for (const angle of [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4]) {
-    sparkle(ctx, C + Math.cos(angle) * 520, C + Math.sin(angle) * 520, 13, theme.ink);
+    sparkle(ctx, C + Math.cos(angle) * 486, C + Math.sin(angle) * 486, 13, theme.ink);
   }
-
-  pill(ctx, C, 902, EVENT.hashtag, display(46, 900), theme.ink, theme.gold, 1, 40, 82);
 }
 
 export function renderPfp(ctx: Ctx, state: RenderState, theme: Theme): void {
   ctx.clearRect(0, 0, SIZE, SIZE);
-  backdrop(ctx, state, theme);
+  backdrop(ctx, state, theme, PHOTO_RADIUS[state.ring]);
 
   if (state.ring === 'wave') drawWave(ctx, theme);
   else if (state.ring === 'tape') drawTape(ctx, theme);

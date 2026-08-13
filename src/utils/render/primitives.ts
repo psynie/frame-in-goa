@@ -16,6 +16,22 @@ export type TextOpts = {
   minSize?: number;
 };
 
+const segmenter =
+  typeof Intl !== 'undefined' && 'Segmenter' in Intl
+    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    : null;
+
+/**
+ * Splits into user-perceived characters. Iterating a string by code point tears
+ * Devanagari apart — "गोवा" becomes ग + ो + व + ा, and the detached vowel signs
+ * land on the wrong glyphs. Anything that draws character-by-character (tracking,
+ * arc text) has to walk grapheme clusters instead.
+ */
+function graphemes(str: string): string[] {
+  if (!segmenter) return [...str];
+  return [...segmenter.segment(str)].map((s) => s.segment);
+}
+
 const sizeOf = (font: string) => Number(/(\d+(?:\.\d+)?)px/.exec(font)?.[1] ?? 16);
 const resize = (font: string, size: number) => font.replace(/\d+(?:\.\d+)?px/, `${size}px`);
 
@@ -66,7 +82,7 @@ export function text(ctx: Ctx, str: string, x: number, y: number, opts: TextOpts
   let cursor = align === 'center' ? x - width / 2 : align === 'right' ? x - width : x;
 
   ctx.textAlign = 'left';
-  for (const ch of str) {
+  for (const ch of graphemes(str)) {
     ctx.fillText(ch, cursor, y);
     cursor += ctx.measureText(ch).width + tracking;
   }
@@ -106,7 +122,7 @@ export function arcText(
 
   const dir = opts.flip ? -1 : 1;
   const tracking = opts.tracking ?? 0;
-  const chars = [...str];
+  const chars = graphemes(str);
   const widths = chars.map((ch) => ctx.measureText(ch).width + tracking);
   const span = widths.reduce((a, b) => a + b, 0) / radius;
 

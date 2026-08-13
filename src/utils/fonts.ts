@@ -2,14 +2,21 @@
 // loading, which is how an export ends up looking nothing like the page. So we
 // resolve the exact weights the renderer asks for before the first paint.
 
-export const DISPLAY = 'Fraunces, Georgia, serif';
-export const MONO = "'DM Mono', ui-monospace, monospace";
+// Fraunces and DM Mono carry no Devanagari, so "गोवा" would otherwise fall back
+// to whatever the OS picks — which shapes the vowel signs inconsistently across
+// platforms. Naming a Devanagari font in the stack pins the shaping everywhere.
+const DEVANAGARI = "'Noto Sans Devanagari'";
+
+export const DISPLAY = `Fraunces, ${DEVANAGARI}, Georgia, serif`;
+export const MONO = `'DM Mono', ${DEVANAGARI}, ui-monospace, monospace`;
 
 const NEEDED = [
   '900 100px Fraunces',
   '700 100px Fraunces',
   "500 100px 'DM Mono'",
   "400 100px 'DM Mono'",
+  `700 100px ${DEVANAGARI}`,
+  `500 100px ${DEVANAGARI}`,
 ];
 
 let pending: Promise<void> | null = null;
@@ -23,7 +30,6 @@ export function ensureFonts(): Promise<void> {
     return pending;
   }
 
-  // Devanagari glyphs come from the same request, so include one in the probe.
   pending = Promise.all(
     NEEDED.map((font) => document.fonts.load(font, 'HACKER गोवा 2026')),
   )

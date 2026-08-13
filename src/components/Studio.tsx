@@ -30,6 +30,7 @@ const OUTCOME_COPY = {
   shared: 'SHARED — KEEP #FrameInGoa IN THE POST',
   copied: 'IMAGE COPIED — PASTE IT INTO THE POST (⌘/CTRL + V)',
   downloaded: 'DOWNLOADED — ATTACH IT TO THE POST THAT JUST OPENED',
+  blocked: 'POPUP BLOCKED — ALLOW POPUPS FOR THIS SITE, THEN TRY AGAIN',
   cancelled: '',
 } as const;
 
@@ -95,8 +96,9 @@ export default function Studio() {
   const onShare = useCallback(async () => {
     setExporting(true);
     try {
-      const blob = await exportPng(renderState);
-      const outcome = await shareToX(blob, filenameFor(renderState));
+      // The render is passed as a factory, not awaited here: shareToX has to run
+      // window.open and clipboard.write while the click's activation is alive.
+      const outcome = await shareToX(() => exportPng(renderState), filenameFor(renderState));
       setStatus(OUTCOME_COPY[outcome]);
     } catch {
       setStatus('SHARING FAILED — DOWNLOAD AND POST MANUALLY');

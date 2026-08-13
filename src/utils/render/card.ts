@@ -64,12 +64,12 @@ function header(ctx: Ctx, theme: Theme): void {
   palm(ctx, 966, 252, 88, theme.gold, 10);
   ctx.restore();
 
-  text(ctx, EVENT.name, W / 2, 168, {
-    font: display(64, 900),
+  text(ctx, EVENT.fullName, W / 2, 168, {
+    font: display(60, 900),
     color: theme.paper,
     align: 'center',
     tracking: 1,
-    maxWidth: 720,
+    maxWidth: 800,
   });
 
   text(ctx, `${EVENT.cityLocal} · ${EVENT.place} · ${EVENT.dates}`, W / 2, 214, {
@@ -119,21 +119,6 @@ function portrait(ctx: Ctx, state: RenderState, theme: Theme): void {
   ctx.lineWidth = 9;
   ctx.stroke();
   ctx.restore();
-
-  // Corner tag, so the photo panel is unmistakably part of the badge.
-  ctx.save();
-  ctx.fillStyle = theme.gold;
-  roundedPath(ctx, x + 22, y + 22, 168, 44, 22);
-  ctx.fill();
-  ctx.restore();
-
-  text(ctx, 'BUILDER', x + 106, y + 45, {
-    font: mono(19, 500),
-    color: theme.ink,
-    align: 'center',
-    baseline: 'middle',
-    tracking: 4,
-  });
 
   sparkle(ctx, x + w - 46, y + h - 46, 16, theme.hot);
 }
