@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+.vite/
+
+# Local overrides. .env is committed so the deploy URL travels with the repo.
+.env.local
+.env.*.local
